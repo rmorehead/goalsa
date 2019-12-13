@@ -114,13 +114,10 @@ func (d *device) createDevice(deviceName string, channels int, format Format, ra
 		return createError("could not set rate params", ret)
 	}
 	var bufferSize = C.snd_pcm_uframes_t(bufferParams.BufferFrames)
-	if bufferParams.BufferFrames == 0 {
-		// Default buffer size: max buffer size
-		ret = C.snd_pcm_hw_params_get_buffer_size_max(hwParams, &bufferSize)
-		if ret < 0 {
-			return createError("could not get buffer size", ret)
-		}
-	}
+	// fmt.Printf("createDevice bufferSize:%d (from snd_pcm_uframes_t\n", bufferSize);
+
+	bufferSize = 320 * 4
+
 	ret = C.snd_pcm_hw_params_set_buffer_size_near(d.h, hwParams, &bufferSize)
 	if ret < 0 {
 		return createError("could not set buffer size", ret)
@@ -152,6 +149,38 @@ func (d *device) createDevice(deviceName string, channels int, format Format, ra
 	d.BufferParams.BufferFrames = int(bufferSize)
 	d.BufferParams.PeriodFrames = int(periodFrames)
 	d.BufferParams.Periods = int(periods)
+
+	// fmt.Printf("frame:%d channel:%d rate:%d BufferFrames:%d PeriodFrames:%d Peirods:%d\n",
+	//      d.frames, d.Channels, d.Rate, d.BufferParams.BufferFrames, d.BufferParams.PeriodFrames, d.BufferParams.Periods)
+
+	var swParams *C.snd_pcm_sw_params_t
+	ret = C.snd_pcm_sw_params_malloc(&swParams)
+	if ret < 0 {
+		return createError("could not alloc sw params", ret)
+	}
+	defer C.snd_pcm_sw_params_free(swParams)
+
+	ret = C.snd_pcm_sw_params_current(d.h, swParams)
+	if ret < 0 {
+		return createError("could not get sw params", ret)
+	}
+
+        var startThreshold C.snd_pcm_uframes_t
+	var stopThreshold C.snd_pcm_uframes_t
+	startThreshold  = 1
+	stopThreshold = 320*4
+
+	ret = C.snd_pcm_sw_params_set_start_threshold(d.h, swParams, startThreshold)
+	if ret < 0 {
+		return createError("could not set sw params start_threshold", ret)
+	}
+
+	ret = C.snd_pcm_sw_params_set_stop_threshold(d.h, swParams, stopThreshold)
+	if ret < 0 {
+		return createError("could not set sw params stop_threshold", ret)
+	}
+	// ret = C.snd_pcm_sw_params_set_start_threshold(d.h,
+
 	return
 }
 
